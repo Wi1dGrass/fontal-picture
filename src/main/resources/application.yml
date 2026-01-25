@@ -7,7 +7,7 @@ spring:
     name: fon-picture-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/fon-picture
+    url: jdbc:mysql://localhost:3306/fontal-picture
     username: root
     password: root
 mybatis-plus:
