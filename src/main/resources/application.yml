@@ -5,11 +5,22 @@ server:
 spring:
   application:
     name: fon-picture-backend
+  profiles:
+    active: local  # 激活 local profile，加载 application-local.yml
+  servlet:
+    multipart:
+      # 单个文件最大大小
+      max-file-size: 10MB
+      # 请求最大大小（所有文件总和）
+      max-request-size: 100MB
+      # 是否启用文件上传
+      enabled: true
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/fontal-picture
     username: root
     password: root
+
 mybatis-plus:
   configuration:
     # MyBatis ??
