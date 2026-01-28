@@ -3,6 +3,7 @@ package com.fontal.fonpicturebackend.service.impl;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fontal.fonpicturebackend.constant.UserConstant;
 import com.fontal.fonpicturebackend.exception.ErrorCode;
 import com.fontal.fonpicturebackend.exception.ThrowUtils;
 import com.fontal.fonpicturebackend.model.domain.User;
@@ -272,6 +273,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.orderByDesc("createTime");
 
         return queryWrapper;
+    }
+
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && user.getUserRole().equals(UserConstant.ADMIN_ROLE);
     }
 }
 

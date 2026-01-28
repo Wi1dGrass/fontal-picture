@@ -53,14 +53,48 @@ public interface UserService extends IService<User> {
      */
     boolean userLogout(HttpServletRequest request);
 
-
+    /**
+     * 加密密码
+     *
+     * @param password 密码
+     * @return 加密密码
+     */
     String getEncryptPassword(String password);
 
+    /**
+     * 将user转为vo
+     * @param user user
+     * @return userLoginVo
+     */
     UserLoginVo userToLoginVO(User user);
 
+    /**
+     * 将user转为vo
+     * @param user user
+     * @return userVo
+     */
     UserVo userToUserVO(User user);
 
+    /**
+     * 更新user信息
+     * @param userUpdateRequest user更新请求
+     * @param request session
+     * @return 是否成功 true
+     */
     boolean userUpdate(UserUpdateRequest userUpdateRequest, HttpServletRequest request);
 
+    /**
+     * 查询
+     * @param userQueryPage user查询参数
+     * @return 查询对象
+     */
     Wrapper<User> getQueryWrapper(UserQueryPage userQueryPage);
+
+    /**
+     * 是否为管理员
+     *
+     * @param user 用户对象
+     * @return true/false
+     */
+    boolean isAdmin(User user);
 }

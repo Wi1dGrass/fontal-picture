@@ -1,7 +1,10 @@
 package com.fontal.fonpicturebackend.model.domain;
 
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.annotation.*;
+import com.fontal.fonpicturebackend.model.vo.picture.PictureVO;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -87,6 +90,26 @@ public class Picture implements Serializable {
     private Date updateTime;
 
     /**
+     * 状态：0-待审核; 1-通过; 2-拒绝
+     */
+    private Integer reviewStatus;
+
+    /**
+     * 审核信息
+     */
+    private String reviewMessage;
+
+    /**
+     * 审核人 id
+     */
+    private Long reviewerId;
+
+    /**
+     * 审核时间
+     */
+    private Date reviewTime;
+
+    /**
      * 是否删除
      */
     @TableLogic
@@ -95,4 +118,20 @@ public class Picture implements Serializable {
     @TableField(exist = false)
     @Serial
     private static final long serialVersionUID = 243423423451L;
+
+    public static PictureVO objToVO(Picture picture) {
+
+        PictureVO pictureVO = new PictureVO();
+        BeanUtils.copyProperties(picture, pictureVO);
+        //从JSON字符串转为List
+        pictureVO.setTags(JSONUtil.toList(picture.getTags(), String.class));
+        return pictureVO;
+    }
+
+    public static Picture voToObj(PictureVO pictureVO) {
+        Picture picture = new Picture();
+        BeanUtils.copyProperties(pictureVO, picture);
+        picture.setTags(JSONUtil.toJsonStr(pictureVO.getTags()));
+        return picture;
+    }
 }

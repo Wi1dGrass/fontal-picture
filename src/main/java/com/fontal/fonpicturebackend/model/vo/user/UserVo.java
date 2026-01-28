@@ -1,7 +1,10 @@
 package com.fontal.fonpicturebackend.model.vo.user;
 
+import lombok.Data;
+
 import java.util.Date;
 
+@Data
 public class UserVo {
     /**
      * 用户名
