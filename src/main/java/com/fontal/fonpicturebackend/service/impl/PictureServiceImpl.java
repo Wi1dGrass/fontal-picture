@@ -28,6 +28,7 @@ import com.fontal.fonpicturebackend.model.vo.user.UserVo;
 import com.fontal.fonpicturebackend.service.PictureService;
 import com.fontal.fonpicturebackend.mapper.PictureMapper;
 import com.fontal.fonpicturebackend.service.UserService;
+import com.fontal.fonpicturebackend.utils.MultiLevelCache;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,25 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private UrlUploadPicture uploadPictureFile;
     @Resource
     private UrlUploadPicture urlUploadPicture;
+
+    @Resource
+    private MultiLevelCache multiLevelCache;
+
+    /**
+     * 缓存前缀
+     */
+    private static final String CACHE_KEY_PREFIX = "fontal:picture:picturePage:";
+
+    /**
+     * 清除图片分页缓存（多级缓存）
+     */
+    private void clearPicturePageCache() {
+        try {
+            multiLevelCache.deleteByPrefix(CACHE_KEY_PREFIX);
+        } catch (Exception e) {
+            log.warn("清除缓存失败: {}", e.getMessage());
+        }
+    }
 
     @Override
     public PictureVO uploadPicture(Object inputSource, PictureUploadRequest pictureUploadRequest, User loginUser) {
@@ -108,6 +128,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         //5.存入数据库中
         boolean result = this.saveOrUpdate(picture);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        // 清除缓存
+        clearPicturePageCache();
         return Picture.objToVO(picture);
     }
 
@@ -225,6 +247,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         //3.删除图片
         boolean result = this.removeById(id);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        // 清除缓存
+        clearPicturePageCache();
         return true;
     }
 
@@ -250,6 +274,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         //4.更新
         boolean update = this.updateById(picture);
         ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR);
+        // 清除缓存
+        clearPicturePageCache();
         return true;
     }
 
@@ -273,6 +299,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         BeanUtils.copyProperties(pictureReviewRequest,newPicture);
         boolean result = this.updateById(newPicture);
         ThrowUtils.throwIf(!result,ErrorCode.OPERATION_ERROR);
+        // 清除缓存
+        clearPicturePageCache();
     }
 
     @Override
@@ -402,6 +430,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         log.info("批量抓取完成，成功: {}, 失败: {}", successCount, failCount);
         ThrowUtils.throwIf(CollUtil.isEmpty(result), ErrorCode.OPERATION_ERROR, "所有图片上传失败");
+        // 清除缓存
+        if (successCount > 0) {
+            clearPicturePageCache();
+        }
         return result;
     }
 

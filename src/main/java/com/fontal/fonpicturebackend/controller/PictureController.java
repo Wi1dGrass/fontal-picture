@@ -1,5 +1,7 @@
 package com.fontal.fonpicturebackend.controller;
 
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fontal.fonpicturebackend.annotation.AuthCheck;
 import com.fontal.fonpicturebackend.common.BaseResponse;
@@ -20,12 +22,15 @@ import com.fontal.fonpicturebackend.model.vo.picture.PictureTagCategory;
 import com.fontal.fonpicturebackend.model.vo.picture.PictureVO;
 import com.fontal.fonpicturebackend.service.PictureService;
 import com.fontal.fonpicturebackend.service.UserService;
+import com.fontal.fonpicturebackend.utils.MultiLevelCache;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,6 +43,9 @@ public class PictureController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private MultiLevelCache multiLevelCache;
 
     /**
      * 上传图片（可重新上传）
@@ -113,10 +121,11 @@ public class PictureController {
     }
 
     /**
-     * 获取pictureVo 分页
+     * 获取pictureVo 分页（多级缓存）
      */
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<PictureVO>> listPictureVoPage(@RequestBody PictureQueryRequest pictureQueryRequest, HttpServletRequest request) {
+
         long current = pictureQueryRequest.getCurrent();
         long pageSize = pictureQueryRequest.getPageSize();
         //限制爬虫
@@ -127,10 +136,37 @@ public class PictureController {
             pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         }
 
+        //构建缓存KEY
+        String queryCondition = JSONUtil.toJsonStr(pictureQueryRequest);
+        String key = "fontal:picture:picturePage:" + DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+
+        //先从多级缓存获取数据（Caffeine → Redis）
+        String cacheValue = multiLevelCache.get(key);
+        if (cacheValue != null) {
+            // 空值缓存，防止缓存穿透
+            if (multiLevelCache.isEmpty(cacheValue)) {
+                return ResultUtils.success(new Page<>(current, pageSize, 0));
+            }
+            Page<PictureVO> cachePage = JSONUtil.toBean(cacheValue, Page.class);
+            return ResultUtils.success(cachePage);
+        }
+
+        //未命中，查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current, pageSize),
                 pictureService.getQueryWrapper(pictureQueryRequest));
+        Page<PictureVO> pictureVoPage = pictureService.getPictureVoPage(picturePage, request);
 
-        return ResultUtils.success(pictureService.getPictureVoPage(picturePage, request));
+        //存入多级缓存
+        if (pictureVoPage.getRecords() == null || pictureVoPage.getRecords().isEmpty()) {
+            // 空结果缓存，防止缓存穿透（5分钟）
+            multiLevelCache.setEmpty(key);
+        } else {
+            String jsonStrPage = JSONUtil.toJsonStr(pictureVoPage);
+            long expireMinutes = RandomUtil.randomInt(30, 40);
+            multiLevelCache.set(key, jsonStrPage, expireMinutes, TimeUnit.MINUTES);
+        }
+
+        return ResultUtils.success(pictureVoPage);
     }
 
     /**

@@ -20,6 +20,16 @@ spring:
     url: jdbc:mysql://localhost:3306/fontal-picture
     username: root
     password: root
+  data:
+    redis:
+      host: 127.0.0.1
+      database: 2
+      port: 6379
+      connect-timeout: 5000
+  # Spring Session 配置
+  session:
+    store-type: redis  # 使用 Redis 存储 Session
+    timeout: 2592000   # Session 过期时间（秒）30天 = 30 * 24 * 60 * 60
 
 mybatis-plus:
   configuration:
