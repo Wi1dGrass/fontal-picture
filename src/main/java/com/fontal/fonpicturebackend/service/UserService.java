@@ -18,24 +18,32 @@ public interface UserService extends IService<User> {
 
     /**
      * 用户注册
-     *
-     * @param userAccount   账号
+     * @param userName      昵称
      * @param email         邮箱
      * @param userPassWord  密码
      * @param checkPassword 确认密码
      * @return 注册用户ID
      */
-    Long userRegister(String userAccount, String email, String userPassWord, String checkPassword);
+    UserLoginVo userRegister(String userName, String email, String userPassWord, String checkPassword);
 
     /**
      * 用户登入
      *
-     * @param userAccount  账号
+     * @param email 账号
      * @param userPassword 密码
      * @param request      用于获取session
      * @return 脱敏后的user信息
      */
-    UserLoginVo userLogin(String userAccount, String userPassword, HttpServletRequest request);
+    UserLoginVo userLogin(String email, String userPassword, HttpServletRequest request);
+
+    /**
+     * GitHub OAuth 登入
+     *
+     * @param code    GitHub 授权码
+     * @param request 用于获取 session 和 IP
+     * @return 脱敏后的用户信息
+     */
+    UserLoginVo githubOAuthLogin(String code, HttpServletRequest request);
 
     /**
      * 获取当前登入用户信息
@@ -97,4 +105,15 @@ public interface UserService extends IService<User> {
      * @return true/false
      */
     boolean isAdmin(User user);
+
+    /**
+     * 修改密码
+     *
+     * @param oldPassword  原密码
+     * @param newPassword  新密码
+     * @param checkPassword 确认新密码
+     * @param request     用于获取session
+     * @return 是否成功 true
+     */
+    boolean updatePassword(String oldPassword, String newPassword, String checkPassword, HttpServletRequest request);
 }

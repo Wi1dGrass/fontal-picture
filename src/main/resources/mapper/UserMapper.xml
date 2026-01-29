@@ -6,13 +6,17 @@
     <resultMap id="BaseResultMap" type="com.fontal.fonpicturebackend.model.domain.User">
         <id column="id" property="id" jdbcType="BIGINT"/>
         <result column="userName" property="userName" jdbcType="VARCHAR"/>
-        <result column="userAccount" property="userAccount" jdbcType="VARCHAR"/>
+        <result column="email" property="email" jdbcType="VARCHAR"/>
         <result column="userPassword" property="userPassword" jdbcType="VARCHAR"/>
         <result column="userAvatar" property="userAvatar" jdbcType="VARCHAR"/>
-        <result column="email" property="email" jdbcType="VARCHAR"/>
         <result column="userRole" property="userRole" jdbcType="VARCHAR"/>
         <result column="userProfile" property="userProfile" jdbcType="VARCHAR"/>
-        <result column="editTime" property="editTime" jdbcType="TIMESTAMP"/>
+        <result column="provider" property="provider" jdbcType="VARCHAR"/>
+        <result column="providerId" property="providerId" jdbcType="VARCHAR"/>
+        <result column="thirdPartyAvatar" property="thirdPartyAvatar" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="TINYINT"/>
+        <result column="lastLoginTime" property="lastLoginTime" jdbcType="TIMESTAMP"/>
+        <result column="lastLoginIp" property="lastLoginIp" jdbcType="VARCHAR"/>
         <result column="createTime" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="updateTime" property="updateTime" jdbcType="TIMESTAMP"/>
         <result column="isDelete" property="isDelete" jdbcType="TINYINT"/>
@@ -20,18 +24,10 @@
 
     <!-- 基础字段 -->
     <sql id="Base_Column_List">
-        id, userName, userAccount, userPassword, userAvatar, email, userRole,
-        userProfile, editTime, createTime, updateTime, isDelete
+        id, userName, email, userPassword, userAvatar, userRole, userProfile,
+        provider, providerId, thirdPartyAvatar, status, lastLoginTime, lastLoginIp,
+        createTime, updateTime, isDelete, deleteTime
     </sql>
-
-    <!-- 根据用户账号查询用户 -->
-    <select id="getUserByUserAccount" resultMap="BaseResultMap" parameterType="java.lang.String">
-        SELECT
-        <include refid="Base_Column_List"/>
-        FROM user
-        WHERE userAccount = #{userAccount,jdbcType=VARCHAR}
-        AND isDelete = 0
-    </select>
 
     <!-- 根据用户名查询用户列表（模糊查询） -->
     <select id="getUserByUserName" resultMap="BaseResultMap" parameterType="java.lang.String">

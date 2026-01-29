@@ -1,5 +1,7 @@
 package com.fontal.fonpicturebackend.model.vo.user;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 
 import java.io.Serial;
@@ -15,8 +17,9 @@ public class UserLoginVo implements Serializable {
     private static final long serialVersionUID = 243423423451L;
 
     /**
-     * 用户ID
+     * 用户ID（需要将LONG转为String,否则在json.parse()时，丢失精度）
      */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**
@@ -25,19 +28,16 @@ public class UserLoginVo implements Serializable {
     private String userName;
 
     /**
-     * 用户账号
+     * 用户邮箱
      */
-    private String userAccount;
+    private String email;
+
 
     /**
      * 用户头像URL
      */
     private String userAvatar;
 
-    /**
-     * 用户邮箱
-     */
-    private String email;
 
     /**
      * 用户角色：user/admin
@@ -49,13 +49,5 @@ public class UserLoginVo implements Serializable {
      */
     private String userProfile;
 
-    /**
-     * 创建时间
-     */
-    private Date createTime;
 
-    /**
-     * 业务更新时间
-     */
-    private Date editTime;
 }

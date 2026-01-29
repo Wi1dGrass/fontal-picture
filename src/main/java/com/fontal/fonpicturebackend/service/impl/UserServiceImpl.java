@@ -9,11 +9,15 @@ import com.fontal.fonpicturebackend.exception.ThrowUtils;
 import com.fontal.fonpicturebackend.model.domain.User;
 import com.fontal.fonpicturebackend.model.dto.user.UserQueryPage;
 import com.fontal.fonpicturebackend.model.dto.user.UserUpdateRequest;
+import com.fontal.fonpicturebackend.manager.oAuth.GitHubOAuthManager;
 import com.fontal.fonpicturebackend.model.enums.UserRoleEnum;
+import com.fontal.fonpicturebackend.model.vo.oAuth.GithubUserInfo;
 import com.fontal.fonpicturebackend.model.vo.user.UserLoginVo;
 import com.fontal.fonpicturebackend.model.vo.user.UserVo;
 import com.fontal.fonpicturebackend.service.UserService;
 import com.fontal.fonpicturebackend.mapper.UserMapper;
+import com.fontal.fonpicturebackend.utils.IpUtils;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -21,6 +25,7 @@ import org.springframework.jdbc.support.CustomSQLErrorCodesTranslation;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import java.util.Date;
 import java.util.Objects;
 
 import static com.fontal.fonpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
@@ -35,57 +40,57 @@ import static com.fontal.fonpicturebackend.constant.UserConstant.USER_LOGIN_STAT
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
 
+    @Resource
+    private GitHubOAuthManager gitHubOAuthManager;
+
 
     @Override
-    public Long userRegister(String userAccount, String email, String userPassWord, String checkPassword) {
+    public UserLoginVo userRegister(String userName, String email, String userPassWord, String checkPassword) {
         // 1. 校验参数非空
-        ThrowUtils.throwIf(userAccount == null || userAccount.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户账号不能为空");
+        ThrowUtils.throwIf(userName== null || userName.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户昵称不能为空");
         ThrowUtils.throwIf(email == null || email.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "邮箱不能为空");
         ThrowUtils.throwIf(userPassWord == null || userPassWord.isEmpty(), ErrorCode.PARAMS_ERROR, "用户密码不能为空");
         ThrowUtils.throwIf(checkPassword == null || checkPassword.isEmpty(), ErrorCode.PARAMS_ERROR, "校验密码不能为空");
 
-        // 2. 校验账号长度
-        ThrowUtils.throwIf(userAccount.length() < 4 || userAccount.length() > 20, ErrorCode.PARAMS_ERROR, "用户账号长度必须在4-20个字符之间");
+        // 2. 校验昵称长度
+        ThrowUtils.throwIf(userName.length() > 20, ErrorCode.PARAMS_ERROR, "用户账号长度必须在20个字符之间");
 
-        // 3. 校验账号格式
-        ThrowUtils.throwIf(!userAccount.matches("^[a-zA-Z0-9_]+$"), ErrorCode.PARAMS_ERROR, "用户账号只能包含字母、数字和下划线");
-
-        // 4. 校验密码长度
+        // 3. 校验密码长度
         ThrowUtils.throwIf(userPassWord.length() < 6 || userPassWord.length() > 20, ErrorCode.PARAMS_ERROR, "用户密码长度必须在6-20个字符之间");
 
-        // 5. 校验两次密码是否一致
+        // 4. 校验两次密码是否一致
         ThrowUtils.throwIf(!checkPassword.equals(userPassWord), ErrorCode.PARAMS_ERROR, "两次密码不一致");
 
-        // 6. 校验邮箱格式
+        // 5. 校验邮箱格式
         ThrowUtils.throwIf(!email.matches("^[A-Za-z0-9+_.-]+@(.+)$"), ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
 
-        // 7. 检查用户账号是否重复
+        // 6. 检查邮箱是否重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
+        queryWrapper.eq("email", email);
         long count = this.baseMapper.selectCount(queryWrapper);
-        ThrowUtils.throwIf(count > 0, ErrorCode.PARAMS_ERROR, "账号已存在");
+        ThrowUtils.throwIf(count > 0, ErrorCode.PARAMS_ERROR, "该邮箱已存在");
 
-        // 8. 将密码加盐后md5加密
+        // 7. 将密码加盐后md5加密
         String EncryptPassword = getEncryptPassword(userPassWord);
 
-        // 9. 数据封装
+        // 8. 数据封装
         User user = new User();
-        user.setUserAccount(userAccount);
+        user.setUserName(userName);
         user.setUserPassword(EncryptPassword);
         user.setEmail(email);
         user.setUserName("User");
         user.setUserRole(UserRoleEnum.USER.getValue());
 
-        // 10. 保存在数据库中
+        // 9. 保存在数据库中
         boolean save = this.save(user);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "数据库操作失败");
-        return user.getId();
+        return this.userToLoginVO(user);
     }
 
     @Override
-    public UserLoginVo userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+    public UserLoginVo userLogin(String email, String userPassword, HttpServletRequest request) {
         // 1. 校验参数非空
-        ThrowUtils.throwIf(userAccount == null || userAccount.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户账号不能为空");
+        ThrowUtils.throwIf(email == null || email.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户账号不能为空");
         ThrowUtils.throwIf(userPassword == null || userPassword.isEmpty(), ErrorCode.PARAMS_ERROR, "用户密码不能为空");
 
         // 2. 加密密码
@@ -93,14 +98,91 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 3. 查询用户是否存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
+        queryWrapper.eq("email", email);
         queryWrapper.eq("userPassword", encryptPassword);
         User user = this.baseMapper.selectOne(queryWrapper);
 
         // 4. 校验用户是否存在
         ThrowUtils.throwIf(user == null, ErrorCode.PARAMS_ERROR, "账号或密码错误");
 
-        // 5. 更新session状态
+        // 5. 如果存在则更新上次登入日期和IP地址
+        User newUser = new User();
+        newUser.setId(user.getId());
+        newUser.setLastLoginIp(IpUtils.getClientIp(request));
+        newUser.setLastLoginTime(new Date());
+        boolean result = this.updateById(newUser);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        // 6. 更新session状态
+        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        return this.userToLoginVO(user);
+    }
+
+    @Override
+    public UserLoginVo githubOAuthLogin(String code, HttpServletRequest request) {
+        // 1. 校验参数非空
+        ThrowUtils.throwIf(code == null || code.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "授权码不能为空");
+
+        // 2. 用 code 换取 access_token
+        String accessToken = gitHubOAuthManager.getAccessToken(code);
+        ThrowUtils.throwIf(accessToken == null || accessToken.isEmpty(), ErrorCode.OPERATION_ERROR, "获取 access_token 失败");
+
+        // 3. 获取 GitHub 用户信息
+        GithubUserInfo githubUserInfo = gitHubOAuthManager.getUserInfo(accessToken);
+        ThrowUtils.throwIf(githubUserInfo == null, ErrorCode.OPERATION_ERROR, "获取 GitHub 用户信息失败");
+
+        // 4. 根据 provider + providerId 查询用户是否已存在
+        String providerId = String.valueOf(githubUserInfo.getId());
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("provider", "github");
+        queryWrapper.eq("providerId", providerId);
+        User existUser = this.baseMapper.selectOne(queryWrapper);
+
+        User user;
+        if (existUser != null) {
+            // 4a. 用户已存在，更新登录信息
+            user = existUser;
+            User updateUser = new User();
+            updateUser.setId(user.getId());
+            updateUser.setLastLoginIp(IpUtils.getClientIp(request));
+            updateUser.setLastLoginTime(new Date());
+            // 如果 GitHub 头像有变化，更新头像
+            if (githubUserInfo.getAvatar_url() != null && !githubUserInfo.getAvatar_url().equals(user.getUserAvatar())) {
+                updateUser.setUserAvatar(githubUserInfo.getAvatar_url());
+            }
+            this.updateById(updateUser);
+        } else {
+            // 4b. 用户不存在，创建新用户
+            user = new User();
+            user.setProvider("github");
+            user.setProviderId(providerId);
+            user.setUserName(githubUserInfo.getName() != null ? githubUserInfo.getName() : githubUserInfo.getLogin());
+            user.setUserAvatar(githubUserInfo.getAvatar_url());
+            user.setUserProfile(githubUserInfo.getBio());
+            user.setUserRole(UserRoleEnum.USER.getValue());
+            user.setThirdPartyAvatar(githubUserInfo.getAvatar_url());
+            user.setStatus(1); // 正常状态
+            // 如果 GitHub 提供了邮箱，使用 GitHub 邮箱；否则使用占位符
+            if (githubUserInfo.getEmail() != null && !githubUserInfo.getEmail().isEmpty()) {
+                // 检查邮箱是否已被使用
+                QueryWrapper<User> emailCheckWrapper = new QueryWrapper<>();
+                emailCheckWrapper.eq("email", githubUserInfo.getEmail());
+                long emailCount = this.baseMapper.selectCount(emailCheckWrapper);
+                if (emailCount == 0) {
+                    user.setEmail(githubUserInfo.getEmail());
+                } else {
+                    // 邮箱已被使用，生成唯一邮箱
+                    user.setEmail("github_" + providerId + "@github.local");
+                }
+            } else {
+                user.setEmail("github_" + providerId + "@github.local");
+            }
+
+            boolean save = this.save(user);
+            ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "创建用户失败");
+        }
+
+        // 5. 更新 session 状态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return this.userToLoginVO(user);
     }
@@ -278,6 +360,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean isAdmin(User user) {
         return user != null && user.getUserRole().equals(UserConstant.ADMIN_ROLE);
+    }
+
+    @Override
+    public boolean updatePassword(String oldPassword, String newPassword, String checkPassword, HttpServletRequest request) {
+        // 1. 校验参数非空
+        ThrowUtils.throwIf(oldPassword == null || oldPassword.isEmpty(), ErrorCode.PARAMS_ERROR, "原密码不能为空");
+        ThrowUtils.throwIf(newPassword == null || newPassword.isEmpty(), ErrorCode.PARAMS_ERROR, "新密码不能为空");
+        ThrowUtils.throwIf(checkPassword == null || checkPassword.isEmpty(), ErrorCode.PARAMS_ERROR, "确认密码不能为空");
+
+        // 2. 校验新密码长度
+        ThrowUtils.throwIf(newPassword.length() < 6 || newPassword.length() > 20, ErrorCode.PARAMS_ERROR, "新密码长度必须在6-20个字符之间");
+
+        // 3. 校验两次新密码是否一致
+        ThrowUtils.throwIf(!newPassword.equals(checkPassword), ErrorCode.PARAMS_ERROR, "两次输入的新密码不一致");
+
+        // 4. 获取当前登录用户
+        User currentUser = currentUser(request);
+
+        // 5. 校验原密码是否正确
+        String encryptOldPassword = getEncryptPassword(oldPassword);
+        ThrowUtils.throwIf(!encryptOldPassword.equals(currentUser.getUserPassword()), ErrorCode.PARAMS_ERROR, "原密码错误");
+
+        // 6. 校验新密码不能与原密码相同
+        String encryptNewPassword = getEncryptPassword(newPassword);
+        ThrowUtils.throwIf(encryptNewPassword.equals(currentUser.getUserPassword()), ErrorCode.PARAMS_ERROR, "新密码不能与原密码相同");
+
+        // 7. 更新密码
+        User updateUser = new User();
+        updateUser.setId(currentUser.getId());
+        updateUser.setUserPassword(encryptNewPassword);
+        boolean result = this.updateById(updateUser);
+        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "数据库操作异常");
+
+        // 8. 清除session，需要重新登录
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
+
+        return true;
     }
 }
 

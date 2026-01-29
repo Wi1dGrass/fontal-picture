@@ -3,27 +3,46 @@ CREATE DATABASE IF NOT EXISTS `fontal-picture` DEFAULT CHARACTER SET utf8mb4 COL
 
 USE `fontal-picture`;
 
--- 创建用户表
-CREATE TABLE IF NOT EXISTS `user`
+-- 删除旧表（如果需要保留数据，先备份）
+DROP TABLE IF EXISTS `user`;
+
+-- 创建新用户表
+CREATE TABLE `user`
 (
-    `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `userName`     VARCHAR(256) COMMENT '用户名',
-    `userAccount`  VARCHAR(256) NOT NULL UNIQUE COMMENT '用户账号',
-    `userPassword` VARCHAR(256) NOT NULL COMMENT '用户密码',
-    `userAvatar`   VARCHAR(1024) COMMENT '用户头像URL',
-    `email`        VARCHAR(512) COMMENT '用户邮箱',
-    `userRole`     VARCHAR(256) NOT NULL DEFAULT 'user' COMMENT '用户角色：user/admin',
-    `userProfile`  VARCHAR(512) COMMENT '用户简介',
-    `editTime`     DATETIME              DEFAULT CURRENT_TIMESTAMP COMMENT '业务更新时间',
-    `createTime`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updateTime`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `isDelete`     TINYINT      NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    id                  BIGINT AUTO_INCREMENT COMMENT '主键ID',
+    `userName`          VARCHAR(50) DEFAULT 'User' COMMENT '用户昵称',
+    `email`             VARCHAR(100) NOT NULL COMMENT '用户邮箱',
+    `userPassword`      VARCHAR(256) COMMENT '用户密码(MD5)',
+    `userAvatar`        VARCHAR(1024) COMMENT '用户头像URL',
+    `userRole`          VARCHAR(20) DEFAULT 'user' NOT NULL COMMENT '用户角色',
+    `userProfile`       VARCHAR(500) COMMENT '用户简介',
+
+    -- OAuth 相关
+    `provider`          VARCHAR(20) DEFAULT 'email' COMMENT '认证方式：email/github/google',
+    `providerId`        VARCHAR(100) COMMENT '第三方平台用户ID',
+    `thirdPartyAvatar`  VARCHAR(1024) COMMENT '第三方头像URL(备份)',
+
+    -- 状态相关
+    `status`            TINYINT DEFAULT 1 NOT NULL COMMENT '状态：0-禁用，1-正常',
+    `lastLoginTime`     DATETIME COMMENT '最后登录时间',
+    `lastLoginIp`       VARCHAR(50) COMMENT '最后登录IP',
+
+    -- 时间字段
+    `createTime`        DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    `updateTime`        DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleteTime`        DATETIME COMMENT '删除时间',
+    `isDelete`          TINYINT DEFAULT 0 NOT NULL COMMENT '是否删除',
+
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_userAccount` (`userAccount`),
-    INDEX `idx_userName` (`userName`)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT ='用户表';
+    UNIQUE KEY `uk_email` (`email`),
+    UNIQUE KEY `uk_provider` (`provider`, `providerId`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_provider` (`provider`),
+    INDEX `idx_createTime` (`createTime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 删除deleteTime
+ALTER TABLE `user` DROP COLUMN `deleteTime`;
 
 -- 图片表
 create table if not exists picture
@@ -61,6 +80,7 @@ ALTER TABLE picture
 
 -- 创建基于 reviewStatus 列的索引
 CREATE INDEX idx_reviewStatus ON picture (reviewStatus);
+
 
 
 

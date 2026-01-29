@@ -14,9 +14,9 @@ public class UserLoginRequest implements Serializable {
     private static final long serialVersionUID = 243423423451L;
 
     /**
-     * 用户账号
+     * 用户邮箱
      */
-    private String userAccount;
+    private String email;
 
     /**
      * 用户密码

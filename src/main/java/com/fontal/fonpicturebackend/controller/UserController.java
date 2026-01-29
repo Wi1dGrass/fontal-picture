@@ -29,32 +29,47 @@ public class UserController {
      * 用户注册
      */
     @PostMapping("/register")
-    BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
+    public BaseResponse<UserLoginVo> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
         //校验参数
         ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
         //取参数
-        String userAccount = userRegisterRequest.getUserAccount();
+        String userName = userRegisterRequest.getUserName();
         String email = userRegisterRequest.getEmail();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
         //进入service层
-        Long userRegisterResult = userService.userRegister(userAccount, email, userPassword, checkPassword);
+        UserLoginVo userLoginVo = userService.userRegister(userName, email, userPassword, checkPassword);
         //返回结果
-        return ResultUtils.success(userRegisterResult);
+        return ResultUtils.success(userLoginVo);
     }
 
     /**
      * 用户登入
      */
     @PostMapping("/login")
-    BaseResponse<UserLoginVo> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse<UserLoginVo> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         //校验参数
         ThrowUtils.throwIf(userLoginRequest == null, ErrorCode.PARAMS_ERROR);
         //取参数
-        String userAccount = userLoginRequest.getUserAccount();
+        String email = userLoginRequest.getEmail();
         String userPassword = userLoginRequest.getUserPassword();
         //进入service层
-        UserLoginVo userLoginVo = userService.userLogin(userAccount, userPassword, request);
+        UserLoginVo userLoginVo = userService.userLogin(email, userPassword, request);
+        //返回结果
+        return ResultUtils.success(userLoginVo);
+    }
+
+    /**
+     * GitHub OAuth 登入
+     */
+    @PostMapping("/oauth/github")
+    public BaseResponse<UserLoginVo> githubOAuthLogin(@RequestBody GithubOAuthRequest githubOAuthRequest, HttpServletRequest request) {
+        //校验参数
+        ThrowUtils.throwIf(githubOAuthRequest == null, ErrorCode.PARAMS_ERROR);
+        //取参数
+        String code = githubOAuthRequest.getCode();
+        //进入service层
+        UserLoginVo userLoginVo = userService.githubOAuthLogin(code, request);
         //返回结果
         return ResultUtils.success(userLoginVo);
     }
@@ -63,17 +78,34 @@ public class UserController {
      * 获取当前登入用户
      */
     @GetMapping("/current")
-    BaseResponse<UserLoginVo> getCurrentUser(HttpServletRequest request) {
+    public BaseResponse<UserVo> getCurrentUser(HttpServletRequest request) {
         User user = userService.currentUser(request);
-        return ResultUtils.success(userService.userToLoginVO(user));
+        return ResultUtils.success(userService.userToUserVO(user));
     }
 
     /**
      * 用户注销
      */
     @GetMapping("/logout")
-    BaseResponse<Boolean> userLogout(HttpServletRequest request) {
+    public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         boolean result = userService.userLogout(request);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 修改密码
+     */
+    @PostMapping("/update/password")
+    public BaseResponse<Boolean> updatePassword(@RequestBody UpdatePasswordRequest updatePasswordRequest, HttpServletRequest request) {
+        // 校验参数
+        ThrowUtils.throwIf(updatePasswordRequest == null, ErrorCode.PARAMS_ERROR);
+        // 取参数
+        String oldPassword = updatePasswordRequest.getOldPassword();
+        String newPassword = updatePasswordRequest.getNewPassword();
+        String checkPassword = updatePasswordRequest.getCheckPassword();
+        // 进入service层
+        boolean result = userService.updatePassword(oldPassword, newPassword, checkPassword, request);
+        // 返回结果
         return ResultUtils.success(result);
     }
 
@@ -82,7 +114,7 @@ public class UserController {
      */
     @PostMapping("/add")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    BaseResponse<Long> addUser(@RequestBody UserAddRequest userAddRequest) {
+    public BaseResponse<Long> addUser(@RequestBody UserAddRequest userAddRequest) {
         //校验userAddRequest
         ThrowUtils.throwIf(userAddRequest == null, ErrorCode.PARAMS_ERROR);
         //获取参数到user中
@@ -102,7 +134,7 @@ public class UserController {
      */
     @GetMapping("/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    BaseResponse<User> getUserById(long id) {
+    public BaseResponse<User> getUserById(long id) {
         ThrowUtils.throwIf(id < 0, ErrorCode.PARAMS_ERROR);
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
@@ -114,7 +146,7 @@ public class UserController {
      */
     @GetMapping("/get/vo")
     @AuthCheck(mustRole = UserConstant.DEFAULT_ROLE)
-    BaseResponse<UserVo> getUserVoById(long id) {
+    public BaseResponse<UserVo> getUserVoById(long id) {
         ThrowUtils.throwIf(id < 0, ErrorCode.PARAMS_ERROR);
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
@@ -126,7 +158,7 @@ public class UserController {
      * 更新用户信息
      */
     @PostMapping("/update")
-    BaseResponse<Boolean> userUpdate(@RequestBody UserUpdateRequest userUpdateRequest,HttpServletRequest request) {
+    public BaseResponse<Boolean> userUpdate(@RequestBody UserUpdateRequest userUpdateRequest,HttpServletRequest request) {
         ThrowUtils.throwIf(userUpdateRequest == null, ErrorCode.PARAMS_ERROR);
         boolean save = userService.userUpdate(userUpdateRequest,request);
         return ResultUtils.success(save);
@@ -136,7 +168,7 @@ public class UserController {
      */
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    BaseResponse<Boolean> userDelete(@RequestBody DeleteRequest deleteRequest) {
+    public BaseResponse<Boolean> userDelete(@RequestBody DeleteRequest deleteRequest) {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() <= 0,ErrorCode.PARAMS_ERROR);
         boolean result = userService.removeById(deleteRequest.getId());
         return ResultUtils.success(result);
@@ -147,7 +179,7 @@ public class UserController {
      */
     @PostMapping("/query")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    BaseResponse<Page<User>> userQueryPage(@RequestBody UserQueryPage userQueryPage){
+    public BaseResponse<Page<User>> userQueryPage(@RequestBody UserQueryPage userQueryPage){
         ThrowUtils.throwIf(userQueryPage == null,ErrorCode.PARAMS_ERROR);
         long current = userQueryPage.getCurrent();
         long pageSize = userQueryPage.getPageSize();

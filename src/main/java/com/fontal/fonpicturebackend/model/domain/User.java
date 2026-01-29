@@ -22,17 +22,17 @@ public class User implements Serializable {
     private Long id;
 
     /**
-     * 用户名
+     * 用户昵称
      */
     private String userName;
 
     /**
-     * 用户账号
+     * 用户邮箱
      */
-    private String userAccount;
+    private String email;
 
     /**
-     * 用户密码
+     * 用户密码(MD5)
      */
     private String userPassword;
 
@@ -40,11 +40,6 @@ public class User implements Serializable {
      * 用户头像URL
      */
     private String userAvatar;
-
-    /**
-     * 用户邮箱
-     */
-    private String email;
 
     /**
      * 用户角色：user/admin
@@ -57,9 +52,34 @@ public class User implements Serializable {
     private String userProfile;
 
     /**
-     * 业务更新时间
+     * 认证方式：email/github/google
      */
-    private Date editTime;
+    private String provider;
+
+    /**
+     * 第三方平台用户ID
+     */
+    private String providerId;
+
+    /**
+     * 第三方头像URL(备份)
+     */
+    private String thirdPartyAvatar;
+
+    /**
+     * 状态：0-禁用，1-正常
+     */
+    private Integer status;
+
+    /**
+     * 最后登录时间
+     */
+    private Date lastLoginTime;
+
+    /**
+     * 最后登录IP
+     */
+    private String lastLoginIp;
 
     /**
      * 创建时间
@@ -76,6 +96,7 @@ public class User implements Serializable {
      */
     @TableLogic
     private Integer isDelete;
+
 
     @Serial
     @TableField(exist = false)

@@ -1,6 +1,8 @@
 package com.fontal.fonpicturebackend.model.vo.picture;
 
 import cn.hutool.json.JSONUtil;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fontal.fonpicturebackend.model.domain.Picture;
 import com.fontal.fonpicturebackend.model.vo.user.UserVo;
 import lombok.Data;
@@ -15,8 +17,9 @@ import java.util.List;
 public class PictureVO implements Serializable {
 
     /**
-     * id
+     * ID（需要将LONG转为String,否则在json.parse()时，丢失精度）
      */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**
@@ -70,9 +73,10 @@ public class PictureVO implements Serializable {
     private String picFormat;
 
     /**
-     * 用户 id
+     * 用户ID（需要将LONG转为String,否则在json.parse()时，丢失精度）
      */
-    private Long userId;
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long UserId;
 
     /**
      * 创建时间
