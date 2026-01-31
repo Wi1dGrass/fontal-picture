@@ -1,17 +1,18 @@
 package com.fontal.fonpicturebackend.utils;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
- * 多级缓存工具类
+ * 多级缓存工具类（使用 Jackson 序列化，支持 Jackson 注解）
  * - 一级缓存：Caffeine 本地缓存
  * - 二级缓存：Redis 分布式缓存
  *
@@ -22,6 +23,9 @@ public class MultiLevelCache {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private ObjectMapper objectMapper;
 
     /**
      * 本地缓存实例
@@ -66,11 +70,36 @@ public class MultiLevelCache {
         if (value == null) {
             return null;
         }
-        // 简单处理，实际可以使用 JSONUtil
         if (type == String.class) {
             return (T) value;
         }
-        return cn.hutool.json.JSONUtil.toBean(value, type);
+        try {
+            return objectMapper.readValue(value, type);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 反序列化失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 获取缓存并反序列化（支持泛型，如 Page<PictureVO>）
+     *
+     * @param key         缓存 key
+     * @param entityClass 实体类类型（用于 Page<PictureVO> 中的 PictureVO）
+     * @return Page 对象
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Page<T> getPage(String key, Class<T> entityClass) {
+        String value = get(key);
+        if (value == null) {
+            return null;
+        }
+        try {
+            // 使用 TypeReference 构造 Page<PictureVO> 类型
+            return (Page<T>) objectMapper.readValue(value,
+                    objectMapper.getTypeFactory().constructParametricType(Page.class, entityClass));
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 反序列化失败: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -87,6 +116,23 @@ public class MultiLevelCache {
 
         // 2. 设置 Redis
         stringRedisTemplate.opsForValue().set(key, value, timeout, timeUnit);
+    }
+
+    /**
+     * 设置缓存（对象序列化，使用 Jackson 支持 @JsonSerialize 等注解）
+     *
+     * @param key      缓存 key
+     * @param value    缓存对象
+     * @param timeout  过期时间
+     * @param timeUnit 时间单位
+     */
+    public void set(String key, Object value, long timeout, TimeUnit timeUnit) {
+        try {
+            String jsonValue = objectMapper.writeValueAsString(value);
+            set(key, jsonValue, timeout, timeUnit);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 序列化失败", e);
+        }
     }
 
     /**
@@ -150,9 +196,8 @@ public class MultiLevelCache {
         // 3. 加载数据
         T result = loader.apply(key);
         if (result != null) {
-            String jsonValue = cn.hutool.json.JSONUtil.toJsonStr(result);
-            // 写入缓存
-            set(key, jsonValue, timeout, timeUnit);
+            // 写入缓存（使用 Jackson 序列化）
+            set(key, result, timeout, timeUnit);
         }
 
         return result;
@@ -166,8 +211,11 @@ public class MultiLevelCache {
         if ("EMPTY".equals(value)) {
             return null;
         }
-        Object result = cn.hutool.json.JSONUtil.parse(value);
-        return (T) result;
+        try {
+            return (T) objectMapper.readValue(value, Object.class);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 解析失败", e);
+        }
     }
 
     /**

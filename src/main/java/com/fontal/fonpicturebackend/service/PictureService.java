@@ -12,6 +12,7 @@ import com.fontal.fonpicturebackend.model.dto.picture.PictureUpdateRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadByBatchRequest;
 import com.fontal.fonpicturebackend.model.dto.user.UserQueryPage;
+import com.fontal.fonpicturebackend.model.vo.picture.PicDatabaseInfo;
 import com.fontal.fonpicturebackend.model.vo.picture.PictureVO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.multipart.MultipartFile;
@@ -116,4 +117,11 @@ public interface PictureService extends IService<Picture> {
      *return 图片VO列表
      */
     List<PictureVO> fetchPicturesByBatch(PictureUploadByBatchRequest request, User loginUser);
+
+    /**
+     * 返回图库的数量信息
+     *
+     * @return 返回图库的数量信息
+     */
+    PicDatabaseInfo getPicDatabaseInfo();
 }

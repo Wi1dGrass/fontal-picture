@@ -23,6 +23,7 @@ import com.fontal.fonpicturebackend.model.dto.picture.PictureUpdateRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadByBatchRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.fontal.fonpicturebackend.model.enums.PictureReviewStatusEnum;
+import com.fontal.fonpicturebackend.model.vo.picture.PicDatabaseInfo;
 import com.fontal.fonpicturebackend.model.vo.picture.PictureVO;
 import com.fontal.fonpicturebackend.model.vo.user.UserVo;
 import com.fontal.fonpicturebackend.service.PictureService;
@@ -102,6 +103,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
                 throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
             }
+            return PictureVO.objToVo(oldPicture);
         }
 
         //3.上传文件
@@ -153,8 +155,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         String picFormat = pictureQueryRequest.getPicFormat();
         String searchText = pictureQueryRequest.getSearchText();
         Long userId = pictureQueryRequest.getUserId();
+        Integer reviewStatus = pictureQueryRequest.getReviewStatus();
+        String reviewMessage = pictureQueryRequest.getReviewMessage();
+        Long reviewerId = pictureQueryRequest.getReviewerId();
         String sortField = pictureQueryRequest.getSortField();
         String sortOrder = pictureQueryRequest.getSortOrder();
+
         // 从多字段中搜索
         if (StrUtil.isNotBlank(searchText)) {
             // 需要拼接查询条件
@@ -173,6 +179,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         queryWrapper.eq(ObjUtil.isNotEmpty(picHeight), "picHeight", picHeight);
         queryWrapper.eq(ObjUtil.isNotEmpty(picSize), "picSize", picSize);
         queryWrapper.eq(ObjUtil.isNotEmpty(picScale), "picScale", picScale);
+        queryWrapper.eq(ObjUtil.isNotEmpty(reviewStatus), "reviewStatus", reviewStatus);
+        queryWrapper.eq(ObjUtil.isNotEmpty(reviewerId), "reviewerId", reviewerId);
+        queryWrapper.eq(ObjUtil.isNotEmpty(reviewMessage), "reviewMessage", reviewMessage);
         // JSON 数组查询
         if (CollUtil.isNotEmpty(tags)) {
             for (String tag : tags) {
@@ -190,7 +199,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         PictureVO pictureVO = PictureVO.objToVo(picture);
         if (userId != null && userId > 0) {
             User user = userService.getById(userId);
-            pictureVO.setUser(userService.userToUserVO(user));
+            if (user != null) {
+                pictureVO.setUser(userService.userToUserVO(user));
+            }
         }
         return pictureVO;
     }
@@ -291,12 +302,15 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         //判断是否存在
         Picture picture = this.getById(id);
         ThrowUtils.throwIf(picture == null,ErrorCode.NOT_FOUND_ERROR);
-        ThrowUtils.throwIf(!picture.getReviewStatus().equals(reviewStatus),
+        ThrowUtils.throwIf(picture.getReviewStatus().equals(reviewStatus),
                 ErrorCode.PARAMS_ERROR,"请勿重复审核");
         //开始封装
         Picture newPicture = new Picture();
-        newPicture.setEditTime(new Date());
         BeanUtils.copyProperties(pictureReviewRequest,newPicture);
+        newPicture.setEditTime(new Date());
+        newPicture.setReviewTime(new Date());
+        newPicture.setReviewerId(loginUser.getId());
+
         boolean result = this.updateById(newPicture);
         ThrowUtils.throwIf(!result,ErrorCode.OPERATION_ERROR);
         // 清除缓存
@@ -435,6 +449,31 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             clearPicturePageCache();
         }
         return result;
+    }
+
+    @Override
+    public PicDatabaseInfo getPicDatabaseInfo() {
+        List<Map<String, Object>> resultList = baseMapper.countByReviewStatus();
+
+        PicDatabaseInfo info = new PicDatabaseInfo();
+        long totalCount = 0;
+
+        for (Map<String, Object> row : resultList) {
+            Integer status = (Integer) row.get("reviewStatus");
+            Long count = (Long) row.get("count");
+            totalCount += count;
+
+            if (status.equals(PictureReviewStatusEnum.REVIEWING.getValue())) {
+                info.setReviewingCount(count);
+            } else if (status.equals(PictureReviewStatusEnum.PASS.getValue())) {
+                info.setPassCount(count);
+            } else if (status.equals(PictureReviewStatusEnum.REJECT.getValue())) {
+                info.setRejectCount(count);
+            }
+        }
+
+        info.setAllPicCount(totalCount);
+        return info;
     }
 
     /**

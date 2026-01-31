@@ -18,7 +18,7 @@ import com.fontal.fonpicturebackend.model.dto.picture.PictureUpdateRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadByBatchRequest;
 import com.fontal.fonpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.fontal.fonpicturebackend.model.enums.PictureReviewStatusEnum;
-import com.fontal.fonpicturebackend.model.vo.picture.PictureTagCategory;
+import com.fontal.fonpicturebackend.model.vo.picture.PicDatabaseInfo;
 import com.fontal.fonpicturebackend.model.vo.picture.PictureVO;
 import com.fontal.fonpicturebackend.service.PictureService;
 import com.fontal.fonpicturebackend.service.UserService;
@@ -26,7 +26,6 @@ import com.fontal.fonpicturebackend.utils.MultiLevelCache;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -117,7 +116,7 @@ public class PictureController {
         Picture picture = pictureService.getById(id);
 
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
-        return ResultUtils.success(pictureService.getPictureVo(picture, userService.currentUser(request).getId()));
+        return ResultUtils.success(pictureService.getPictureVo(picture, picture.getUserId()));
     }
 
     /**
@@ -147,7 +146,8 @@ public class PictureController {
             if (multiLevelCache.isEmpty(cacheValue)) {
                 return ResultUtils.success(new Page<>(current, pageSize, 0));
             }
-            Page<PictureVO> cachePage = JSONUtil.toBean(cacheValue, Page.class);
+            // 使用 Jackson 反序列化 Page<PictureVO>（支持泛型）
+            Page<PictureVO> cachePage = multiLevelCache.getPage(key, PictureVO.class);
             return ResultUtils.success(cachePage);
         }
 
@@ -161,25 +161,12 @@ public class PictureController {
             // 空结果缓存，防止缓存穿透（5分钟）
             multiLevelCache.setEmpty(key);
         } else {
-            String jsonStrPage = JSONUtil.toJsonStr(pictureVoPage);
             long expireMinutes = RandomUtil.randomInt(30, 40);
-            multiLevelCache.set(key, jsonStrPage, expireMinutes, TimeUnit.MINUTES);
+            // 直接传入对象，使用 Jackson 序列化（支持 @JsonSerialize 注解）
+            multiLevelCache.set(key, pictureVoPage, expireMinutes, TimeUnit.MINUTES);
         }
 
         return ResultUtils.success(pictureVoPage);
-    }
-
-    /**
-     * 获取标签和分类
-     */
-    @GetMapping("/tag_category")
-    public BaseResponse<PictureTagCategory> listPictureTagCategory() {
-        PictureTagCategory pictureTagCategory = new PictureTagCategory();
-        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "简历", "创意");
-        List<String> categoryList = Arrays.asList("模板", "电商", "表情包", "素材", "海报");
-        pictureTagCategory.setTagList(tagList);
-        pictureTagCategory.setCategoryList(categoryList);
-        return ResultUtils.success(pictureTagCategory);
     }
 
     /**
@@ -208,4 +195,13 @@ public class PictureController {
         return ResultUtils.success(pictureVOList);
     }
 
+
+    /**
+     * 获取图库的基本数量信息（管理员权限）
+     */
+    @GetMapping("/get/number")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<PicDatabaseInfo> getPicDatabaseInfo() {
+        return ResultUtils.success(pictureService.getPicDatabaseInfo());
+    }
 }
