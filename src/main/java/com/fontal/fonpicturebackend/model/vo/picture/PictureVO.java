@@ -76,7 +76,7 @@ public class PictureVO implements Serializable {
      * 用户ID（需要将LONG转为String,否则在json.parse()时，丢失精度）
      */
     @JsonSerialize(using = ToStringSerializer.class)
-    private Long UserId;
+    private Long userId;
 
     /**
      * 创建时间

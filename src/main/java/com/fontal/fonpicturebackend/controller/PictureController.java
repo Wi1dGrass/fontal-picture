@@ -154,6 +154,7 @@ public class PictureController {
         //未命中，查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current, pageSize),
                 pictureService.getQueryWrapper(pictureQueryRequest));
+
         Page<PictureVO> pictureVoPage = pictureService.getPictureVoPage(picturePage, request);
 
         //存入多级缓存
@@ -204,4 +205,6 @@ public class PictureController {
     public BaseResponse<PicDatabaseInfo> getPicDatabaseInfo() {
         return ResultUtils.success(pictureService.getPicDatabaseInfo());
     }
+
+
 }
